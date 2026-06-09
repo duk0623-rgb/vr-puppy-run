@@ -2,33 +2,24 @@
 <html>
 <head>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@v4.0.1/dist/aframe-physics-system.min.js"></script>
 </head>
 <body>
-  <a-scene xr-mode-ui="XRMode: vr" background="color: #000">
+  <a-scene physics="debug: false" xr-mode-ui="XRMode: vr">
     <a-sky color="#000"></a-sky>
-    
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-    <a-entity id="right-hand" laser-controls="hand: right" raycaster="objects: .num6; far: 10;"></a-entity>
-    <a-entity id="left-hand" laser-controls="hand: left" raycaster="objects: .num9; far: 10;"></a-entity>
+
+    <a-entity id="right-hand" hand-controls="hand: right" static-body="shape: sphere; sphereRadius: 0.1">
+      <a-sphere radius="0.1" visible="false"></a-sphere>
+    </a-entity>
+    <a-entity id="left-hand" hand-controls="hand: left" static-body="shape: sphere; sphereRadius: 0.1">
+      <a-sphere radius="0.1" visible="false"></a-sphere>
+    </a-entity>
 
     <a-entity id="target-container"></a-entity>
   </a-scene>
 
   <script>
     const container = document.querySelector('#target-container');
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    function playSound(isCorrect) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.frequency.setValueAtTime(isCorrect ? 880 : 220, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.3);
-    }
 
     function spawnTarget() {
       const isSix = Math.random() > 0.5;
@@ -36,32 +27,19 @@
       
       target.setAttribute('value', isSix ? '6' : '9');
       target.setAttribute('class', isSix ? 'num6' : 'num9');
-      target.setAttribute('align', 'center');
-      target.setAttribute('scale', '1.5 1.5 1.5');
-      target.setAttribute('color', '#FFD700');
+      target.setAttribute('position', `${(Math.random()-0.5)*4} ${1.6+(Math.random()-0.5)*2} -5`);
       
-      // 시야 내(좌우 60도, 상하 30도)에서 나타나게 조정
-      const angle = (Math.random() - 0.5) * Math.PI / 1.5; 
-      const startX = Math.sin(angle) * 5;
-      const startY = 1.6 + (Math.random() - 0.5) * 1.5;
+      // 충돌(글러브 터치) 감지 설정
+      target.setAttribute('dynamic-body', 'shape: box');
       
-      target.setAttribute('position', `${startX} ${startY} -6`);
-
-      // 회전하며 다가오는 애니메이션 (시계/반시계 방향)
-      const rotationDir = Math.random() > 0.5 ? 360 : -360;
-      target.setAttribute('animation', {
-        property: 'position', to: '0 1.6 -1', dur: 4000, easing: 'linear'
+      // 글러브(손)에 닿는 순간 감지
+      target.addEventListener('collide', function(e) {
+        const handId = e.detail.body.el.id; // 오른손/왼손 확인
+        if ((isSix && handId === 'right-hand') || (!isSix && handId === 'left-hand')) {
+          // 정답 처리
+          this.remove();
+        }
       });
-      target.setAttribute('animation__rot', {
-        property: 'rotation', to: `0 0 ${rotationDir}`, dur: 4000, easing: 'linear'
-      });
-
-      // 터치 시 처리
-      target.addEventListener('mousedown', function() {
-        playSound(true);
-        this.remove();
-      });
-      
       container.appendChild(target);
     }
 
